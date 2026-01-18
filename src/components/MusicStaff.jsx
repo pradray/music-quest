@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Factory, Formatter, Stave, StaveNote, Voice, Beam } from 'vexflow';
 
-const MusicStaff = ({ clef, notes, highlightedNoteIndex }) => {
+const MusicStaff = ({ clef, notes, highlightedNoteIndex, noteStatuses }) => {
   const containerRef = useRef();
 
   useEffect(() => {
@@ -61,8 +61,18 @@ const MusicStaff = ({ clef, notes, highlightedNoteIndex }) => {
             clef: clef,
             auto_stem: true,
           });
+          // Highlight current note
           if (noteData.originalIndex === highlightedNoteIndex) {
             staveNote.setStyle({ fillStyle: '#A78BFA', strokeStyle: '#A78BFA' });
+          }
+          // Apply per-note status color if provided
+          if (noteStatuses && typeof noteStatuses[noteData.originalIndex] !== 'undefined') {
+            const status = noteStatuses[noteData.originalIndex];
+            if (status === 'correct') {
+              staveNote.setStyle({ fillStyle: '#10B981', strokeStyle: '#10B981' });
+            } else if (status === 'wrong') {
+              staveNote.setStyle({ fillStyle: '#F87171', strokeStyle: '#F87171' });
+            }
           }
           return staveNote;
         });
@@ -75,6 +85,29 @@ const MusicStaff = ({ clef, notes, highlightedNoteIndex }) => {
 
         const beams = Beam.generateBeams(vexNotes);
         beams.forEach(beam => beam.setContext(context).draw());
+
+        // Draw plain status symbols (green tick / red cross) above notes
+        if (noteStatuses) {
+          context.save();
+          context.font = '20px Arial';
+          context.textAlign = 'center';
+          context.textBaseline = 'middle';
+          measureNotes.forEach((noteData, idx) => {
+            const status = noteStatuses[noteData.originalIndex];
+            if (!status) return;
+            const vfNote = vexNotes[idx];
+            const x = vfNote.getAbsoluteX() + 6;
+            const y = 28; // position above the staff
+            if (status === 'correct') {
+              context.fillStyle = '#10B981';
+              context.fillText('✓', x, y);
+            } else if (status === 'wrong') {
+              context.fillStyle = '#EF4444';
+              context.fillText('✕', x, y);
+            }
+          });
+          context.restore();
+        }
 
         x += measureWidth;
       });

@@ -130,6 +130,8 @@ export default function App() {
   const [feedback, setFeedback] = useState(null);
   const [proficiency, setProficiency] = useState({});
   const [currentNoteInMelodyIndex, setCurrentNoteInMelodyIndex] = useState(0);
+  const [melodyAnswers, setMelodyAnswers] = useState({});
+  const [wrongNoteMessage, setWrongNoteMessage] = useState(null);
   const [priorityQueue, setPriorityQueue] = useState([]);
   const [isDevMode, setIsDevMode] = useState(false);
 
@@ -299,12 +301,12 @@ export default function App() {
     }
 
     if (isCorrect) {
-      setFeedback('correct');
+      // CORRECT ANSWER
       playNote(activeQ.audio);
-      confetti({ particleCount: 60, spread: 70, origin: { y: 0.7 } });
-      const delay = 1200;
+      const delay = 600;
 
       if (gameState === 'warmup') {
+        setFeedback('correct');
         setTimeout(() => {
           setFeedback(null);
           if (warmupIndex + 1 < warmupQueue.length) {
@@ -316,7 +318,7 @@ export default function App() {
         return;
       }
 
-      // --- Correct Answer Logic Per Level Type ---
+      // Update score/streak for the correct note
       setScore(s => s + 10);
       setStreak(s => s + 1);
 
@@ -331,39 +333,76 @@ export default function App() {
         });
       }
 
-      setTimeout(() => {
-        setFeedback(null);
-        if (levelType === 'proficiency') {
-          if (checkProficiency(currentLevelData, proficiency)) {
-            advanceToNextLevel();
-          } else {
-            getNextProficiencyQuestion();
+      if (levelType === 'melody') {
+        // Mark this note as correct in melodyAnswers
+        setMelodyAnswers(prev => {
+          const copy = { ...prev };
+          const melodyKey = String(currentQ);
+          const melody = currentLevelData.questions[currentQ];
+          const len = melody.notes.length;
+          if (!copy[melodyKey] || copy[melodyKey].length !== len) {
+            copy[melodyKey] = Array(len).fill(null);
           }
-        } else if (levelType === 'melody') {
+          copy[melodyKey][currentNoteInMelodyIndex] = 'correct';
+          return copy;
+        });
+
+        // Advance to next note or finish melody
+        setTimeout(() => {
           const melody = currentLevelData.questions[currentQ];
           if (currentNoteInMelodyIndex + 1 < melody.notes.length) {
             setCurrentNoteInMelodyIndex(i => i + 1);
           } else {
+            // Finished melody: decide whether to advance or repeat
+            const statuses = (melodyAnswers[String(currentQ)] || []).concat();
+            // include the latest correct one we just set
+            statuses[currentNoteInMelodyIndex] = 'correct';
+            const hasWrong = statuses.some(s => s === 'wrong');
+            if (hasWrong) {
+              // Let the player try the same melody again
+              setFeedback('wrong');
+              setTimeout(() => setFeedback(null), 1000);
+              // Reset statuses for replay
+              setMelodyAnswers(prev => ({ ...prev, [String(currentQ)]: Array(melody.notes.length).fill(null) }));
+              setCurrentNoteInMelodyIndex(0);
+            } else {
+              // All green — show celebration then advance
+              setFeedback('correct');
+              confetti({ particleCount: 60, spread: 70, origin: { y: 0.7 } });
+              setTimeout(() => {
+                setFeedback(null);
+                if (currentQ + 1 < currentLevelData.questions.length) {
+                  setCurrentQ(q => q + 1);
+                  setCurrentNoteInMelodyIndex(0);
+                } else {
+                  advanceToNextLevel();
+                }
+              }, 1200);
+            }
+          }
+        }, delay);
+      } else {
+        // Non-melody correct logic (standard/proficiency)
+        setTimeout(() => {
+          setFeedback(null);
+          if (levelType === 'proficiency') {
+            if (checkProficiency(currentLevelData, proficiency)) {
+              advanceToNextLevel();
+            } else {
+              getNextProficiencyQuestion();
+            }
+          } else {
             if (currentQ + 1 < currentLevelData.questions.length) {
               setCurrentQ(q => q + 1);
-              setCurrentNoteInMelodyIndex(0);
             } else {
               advanceToNextLevel();
             }
           }
-        } else {
-          // Standard level
-          if (currentQ + 1 < currentLevelData.questions.length) {
-            setCurrentQ(q => q + 1);
-          } else {
-            advanceToNextLevel();
-          }
-        }
-      }, delay);
+        }, delay);
+      }
 
     } else {
       // --- WRONG ANSWER ---
-      setFeedback('wrong');
       errorSynth.current.triggerAttackRelease("C2", "8n");
       setStreak(0);
 
@@ -372,15 +411,67 @@ export default function App() {
           setPriorityQueue(prev => [...prev, activeQ.id, activeQ.id]);
       }
 
-      setTimeout(() => {
-        setFeedback(null);
-        if (levelType === 'proficiency') {
-           getNextProficiencyQuestion();
-        }
-        if(levelType === 'melody'){
+      if (levelType === 'melody') {
+        // Mark this note as wrong and tell the player the correct note
+        setMelodyAnswers(prev => {
+          const copy = { ...prev };
+          const melodyKey = String(currentQ);
+          const melody = currentLevelData.questions[currentQ];
+          const len = melody.notes.length;
+          if (!copy[melodyKey] || copy[melodyKey].length !== len) {
+            copy[melodyKey] = Array(len).fill(null);
+          }
+          copy[melodyKey][currentNoteInMelodyIndex] = 'wrong';
+          return copy;
+        });
+
+        // Play the correct note so the learner can hear it
+        playNote(activeQ.audio);
+
+        // Show wrong overlay + the correct-note hint briefly
+        setFeedback('wrong');
+        setWrongNoteMessage(`Correct: ${activeQ.answer}`);
+        setTimeout(() => {
+          setWrongNoteMessage(null);
+          setFeedback(null);
+        }, 1600);
+
+        // Advance to the next note so the player continues the melody
+        const melody = currentLevelData.questions[currentQ];
+        if (currentNoteInMelodyIndex + 1 < melody.notes.length) {
+          setTimeout(() => setCurrentNoteInMelodyIndex(i => i + 1), 600);
+        } else {
+          // Last note: decide whether to replay the melody or advance
+          const statuses = (melodyAnswers[String(currentQ)] || Array(melody.notes.length).fill(null)).slice();
+          statuses[currentNoteInMelodyIndex] = 'wrong';
+          const hasWrong = statuses.some(s => s === 'wrong');
+          if (hasWrong) {
+            // replay melody
+            setFeedback('wrong');
+            setTimeout(() => setFeedback(null), 1000);
+            setMelodyAnswers(prev => ({ ...prev, [String(currentQ)]: Array(melody.notes.length).fill(null) }));
             setCurrentNoteInMelodyIndex(0);
+          } else {
+            // all correct (unlikely here since this branch is wrong), advance
+            setTimeout(() => {
+              if (currentQ + 1 < currentLevelData.questions.length) {
+                setCurrentQ(q => q + 1);
+                setCurrentNoteInMelodyIndex(0);
+              } else {
+                advanceToNextLevel();
+              }
+            }, 800);
+          }
         }
-      }, 1000);
+      } else {
+        setFeedback('wrong');
+        setTimeout(() => {
+          setFeedback(null);
+          if (levelType === 'proficiency') {
+             getNextProficiencyQuestion();
+          }
+        }, 1000);
+      }
     }
   };
 
@@ -410,6 +501,17 @@ export default function App() {
     }
     return question;
   })();
+
+  // Ensure melodyAnswers array exists for the current melody
+  useEffect(() => {
+    if (currentLevelData.type === 'melody' && activeQuestion) {
+      setMelodyAnswers(prev => {
+        const key = String(currentQ);
+        if (prev[key] && prev[key].length === activeQuestion.notes.length) return prev;
+        return { ...prev, [key]: Array(activeQuestion.notes.length).fill(null) };
+      });
+    }
+  }, [level, currentQ, activeQuestion]);
 
   const noteToAnswer = (() => {
      if (!activeQuestion || gameState === 'welcome' || gameState === 'victory') return null;
@@ -566,17 +668,22 @@ export default function App() {
                 exit={{ opacity: 0, scale: 1.5 }}
                 className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm rounded-[2rem]"
               >
-                {feedback === 'correct' ? (
+                 {wrongNoteMessage ? (
+                  <>
+                    <XCircle className="text-red-400 w-20 h-20 mb-2 drop-shadow-xl" />
+                    <h2 className="text-2xl font-black text-red-400">{wrongNoteMessage}</h2>
+                  </>
+                 ) : feedback === 'correct' ? (
                    <>
                     <CheckCircle className="text-green-500 w-24 h-24 mb-2 drop-shadow-xl" />
                     <h2 className="text-4xl font-black text-green-500">AWESOME!</h2>
                    </>
-                ) : (
+                 ) : (
                    <>
                     <XCircle className="text-red-400 w-24 h-24 mb-2 drop-shadow-xl" />
                     <h2 className="text-4xl font-black text-red-400">TRY AGAIN</h2>
                    </>
-                )}
+                 )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -584,8 +691,9 @@ export default function App() {
           <div className="scale-90 sm:scale-100 origin-center">
             {activeQuestion && <MusicStaff
                clef={currentLevelData.clef}
-               notes={currentLevelData.type === 'melody' ? activeQuestion.notes : [{note: noteToAnswer.note, duration: 'w'}]}
-               highlightedNoteIndex={currentLevelData.type === 'melody' ? currentNoteInMelodyIndex : 0}
+              notes={currentLevelData.type === 'melody' ? activeQuestion.notes : [{note: noteToAnswer.note, duration: 'w'}]}
+              highlightedNoteIndex={currentLevelData.type === 'melody' ? currentNoteInMelodyIndex : 0}
+              noteStatuses={currentLevelData.type === 'melody' ? (melodyAnswers[String(currentQ)] || Array(activeQuestion.notes.length).fill(null)) : null}
             />}
           </div>
         </div>
