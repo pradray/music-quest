@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+body {
+  font-family: 'Fredoka', sans-serif; /* Apply the fun font globally */
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Custom bounce animation for the notes */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
