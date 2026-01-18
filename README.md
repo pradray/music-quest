@@ -1,16 +1,84 @@
-# React + Vite
+# Music Quest
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Music Quest is a small React app (Vite) for practicing musical notes and simple melodies. It includes:
 
-Currently, two official plugins are available:
+- Interactive staff rendering with VexFlow
+- On-screen piano keys for answers
+- Melodies practice mode with per-note feedback
+- GitHub Pages deploy support
+- Web MIDI input (connect a MIDI keyboard)
+- Local progress persistence via `localStorage`
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Quick Start
 
-## React Compiler
+Requirements: Node.js 18+, npm (or yarn).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Install dependencies
 
-## Expanding the ESLint configuration
+```bash
+npm install
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+2. Run the dev server
+
+```bash
+npm run dev
+```
+
+3. Build for production
+
+```bash
+npm run build
+```
+
+4. Deploy to GitHub Pages
+
+This project includes `gh-pages` scripts. Set the `homepage` value in `package.json` to your GitHub Pages URL (e.g. `https://<username>.github.io/music-quest`) then run:
+
+```bash
+npm run deploy
+```
+
+## Features
+
+- Levels: note identification and melody practice.
+- Melody mode (Level 5): marks each note correct/incorrect, plays the correct note on mistakes, and repeats the melody if any note was wrong.
+- Visual feedback: green ticks / red crosses above staff notes for melody progress.
+- MIDI support: connect a MIDI device and play notes directly. When using MIDI, inputs are matched to full note names (e.g. `E4`). On-screen keys remain single-letter (`C`, `D`, ...).
+- Local progress persistence: progress is saved automatically to `localStorage` and restored on load. Use the "Clear Progress" button in the header to reset.
+
+## MIDI Usage
+
+1. Click the `Connect MIDI` button in the app header. Your browser will request permission to access MIDI devices.
+2. If multiple MIDI inputs are available, choose the desired device from the dropdown.
+3. Play notes on your keyboard — Note On events map to the app's answer logic (MIDI uses full note names like `C4`, `E4`).
+
+Notes:
+- The Web MIDI API is required (most Chromium-based browsers and recent Safari). If not supported, the app will alert you.
+- Sharps/flats will be passed as full names (e.g. `C#4`) and may not match expected natural notes in the app unless a melody uses them.
+
+## Local Storage
+
+- The app saves progress under the key: `musicQuestSave`.
+- The following state is persisted: `level`, `currentQ`, `score`, `streak`, `proficiency`, `priorityQueue`, `currentNoteInMelodyIndex`, `melodyAnswers`, and `gameState`.
+- To clear saved progress, use the "Clear Progress" button in the header.
+
+## Project Structure
+
+- `src/App.jsx` — main game logic and UI
+- `src/components/MusicStaff.jsx` — VexFlow rendering and per-note status markers
+- `vite.config.js` — base path configured for GitHub Pages
+
+## Troubleshooting
+
+- If deployed site shows 404s for assets, ensure `vite.config.js` `base` is set to `'/your-repo-name/'` and `package.json` `homepage` matches your GitHub Pages URL, then rebuild and redeploy.
+- MIDI not working: ensure your browser supports Web MIDI and grant permission when prompted.
+- If UI feedback is not visible: check browser console for errors and verify `melodyAnswers` state in the dev console.
+
+## Contributing
+
+Feel free to open issues or PRs. Suggested small improvements:
+- Add optional mapping of MIDI sharps to nearest natural note for beginner-friendly matching.
+- Improve accessibility (keyboard controls, ARIA labels).
+
+---
