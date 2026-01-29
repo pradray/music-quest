@@ -3,6 +3,10 @@ import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Star, Volume2, Trophy, Zap, Download, Upload, Music, CheckCircle, XCircle, RotateCcw } from 'lucide-react';
 const MusicStaff = React.lazy(() => import('./components/MusicStaff'));
+const remoteServerPath = 'http://168.78.24.1/secureStore
+const storeSecret = 'GHAGDHGY#GEHBNMBWMJD'
+console.log ('remoteServerPath='+remoteServerPath)
+console.log ('storeSecret='+storeSecret)
 
 // --- DATA: ABRSM GRADE 1 SYLLABUS ---
 const OLD_LEVEL_1_QUESTIONS = [
